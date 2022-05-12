@@ -1,18 +1,38 @@
+#Requires -Version 5
+#Requires -Module VMware.VimAutomation.Core
 <#
 .SYNOPSIS
     Deploys VCSA within an existing vCenter deployment
 .DESCRIPTION
-    Long description
+    1. Deploys VCSA from .ova file
+    2. Monitors first stage
+    3. Invokes and monitors final configuration stage
 .EXAMPLE
-    PS C:\> <example usage>
-    Explanation of what the example does
+    # Get host with most available memory
+    $VmHost = Get-VMHost | Sort-Object -Property { $_.MemoryTotalMB - $_.MemoryUsageMB } | Select-Object -Last 1
+
+    # Get Datastore with most space available
+    $Datastore = $VmHost | Get-Datastore | Sort-Object -Property FreeSpaceGB | Select-Object -Last 1
+
+    $ParamVcsaDeploy = @{
+        Server       = 'vCenter01.domain.dev'
+        Credential   = (Get-Credential -Message 'Enter vCenter Credentials')
+        Path         = '.\VCSA\vcsa\VMware-vCenter-Server-Appliance-7.0.2.00200-17958471_OVF10.ova'
+        Name         = 'VCSA_01'
+        VmHost       = ($VmHost | Select-Object -ExpandProperty Name)
+        Location     = ($VmHost | Get-Cluster | Select-Object -ExpandProperty Name)
+        Datastore    = ($Datastore | Select-Object -ExpandProperty Name)
+        Ip           = '10.0.0.100'
+        PrefixLength = 24            ### Equivelant to a Subnet Mask of 255.255.255.0
+        Gateway      = '10.0.0.1'
+        DnsServer    = @('10.0.0.5', '10.0.0.6')
+        PortGroup    = 'VM Network'
+    }
+
+    .\Invoke-VcsaDeployment.ps1 @ParamVcsaDeploy
 .OUTPUTS
-    Output (if any)
-.NOTES
-    General notes
+    Output is json formatted status messages of the deployment
 #>
-#Requires -Version 5
-#Requires -Module VMware.VimAutomation.Core
 [CmdletBinding()]
 param (
     # Vcenter Address to deploy Vcsa in. Deploying a Vcsa ova to an ESX host is not allowed
